@@ -20,22 +20,28 @@ pub fn main() !void {
     defer gpa.free(input);
 
     var lines = std.mem.split(u8, std.mem.trimRight(u8, input, "\n"), "\n");
-    var elves = std.ArrayList(food_t).init(gpa);
-    defer elves.deinit();
+    var elf_buf = std.ArrayList(food_t).init(gpa);
+    defer elf_buf.deinit();
 
     var acc: food_t = 0;
     while (lines.next()) |line| {
         if (line.len == 0) {
-            try elves.append(acc);
+            try elf_buf.append(acc);
             acc = 0;
             continue;
         }
         const snack = try std.fmt.parseUnsigned(food_t, line, 10);
         acc += snack;
     }
-    try elves.append(acc);
+    try elf_buf.append(acc);
+    const elves = elf_buf.items;
 
-    try stdout.print("Max Elf: {}\n", .{std.mem.max(food_t, elves.items)});
+    try stdout.print("Max Elf: {}\n", .{std.mem.max(food_t, elves)});
+
+    if (elves.len >= 3) {
+        std.sort.sort(food_t, elves, {}, comptime std.sort.desc(food_t));
+        try stdout.print("Top 3: {}\n", .{elves[0] + elves[1] + elves[2]});
+    }
 
     try bw.flush();
 }
