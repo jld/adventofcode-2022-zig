@@ -73,4 +73,32 @@ test "round_score" {
     try t.expectEqual(@as(score_t, 6), (Round{ .them = .scissors, .me = .scissors }).score());
 }
 
+fn parse_round(input: []const u8) !Round {
+    if (input.len != 3) {
+        return error.BadSyntax;
+    }
+    if (input[1] != ' ') {
+        return error.BadSyntax;
+    }
+    return .{
+        .them = try parse_shape("ABC", input[0]),
+        .me = try parse_shape("XYZ", input[2]),
+    };
+}
+
+test "parse_round" {
+    const t = std.testing;
+    const validate = struct { // lolsigh
+        fn call(input: []const u8, exp_them: Shape, exp_me: Shape) !void {
+            const round = try parse_round(input);
+            try t.expectEqual(exp_them, round.them);
+            try t.expectEqual(exp_me, round.me);
+        }
+    }.call;
+
+    try validate("A Y", .rock, .paper);
+    try validate("B X", .paper, .rock);
+    try validate("C Z", .scissors, .scissors);
+}
+
 pub fn main() !void {}
