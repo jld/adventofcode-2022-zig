@@ -181,4 +181,43 @@ test "rscore_p2" {
     try t.expectEqual(@as(score_t, 7), rscore_p2(try GuideLine(End).parse("C Z")));
 }
 
+fn score(comptime Line: type, comptime rscore_fn: anytype, input: []const u8) !score_t {
+    var lines = std.mem.split(u8, std.mem.trimRight(u8, input, "\n"), "\n");
+
+    var acc: score_t = 0;
+    while (lines.next()) |line| {
+        var gl: Line = try Line.parse(line);
+        acc += rscore_fn(gl);
+    }
+    return acc;
+}
+
+fn score_p1(input: []const u8) !score_t {
+    return score(GuideLine(Shape), rscore_p1, input);
+}
+
+fn score_p2(input: []const u8) !score_t {
+    return score(GuideLine(End), rscore_p2, input);
+}
+
+test "score_p1" {
+    const t = std.testing;
+    const example =
+        \\A Y
+        \\B X
+        \\C Z
+    ;
+    try t.expectEqual(@as(score_t, 15), try score_p1(example));
+}
+
+test "score_p2" {
+    const t = std.testing;
+    const example =
+        \\A Y
+        \\B X
+        \\C Z
+    ;
+    try t.expectEqual(@as(score_t, 12), try score_p2(example));
+}
+
 pub fn main() !void {}
