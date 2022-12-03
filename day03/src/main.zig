@@ -1,5 +1,6 @@
 const std = @import("std");
 const item_t = u6;
+const answer_t = i64;
 
 fn item_of_char(c: u8) !item_t {
     return switch (c) {
@@ -167,6 +168,52 @@ test "Sack unpack" {
     try t.expect(buf_3[0] == 2);
     try t.expect(buf_3[1] == 16);
     try t.expect(buf_3[2] == 38);
+}
+
+fn oops_line(line: []const u8) !answer_t {
+    const lhalf = line[0 .. line.len / 2];
+    const rhalf = line[line.len / 2 .. line.len];
+    if (lhalf.len != rhalf.len) {
+        return error.UnevenSacks;
+    }
+    var lsack = Sack{};
+    var rsack = Sack{};
+    try lsack.add_str(lhalf);
+    try rsack.add_str(rhalf);
+
+    var rv: [1]item_t = undefined;
+    try lsack.isect(rsack).unpack(1, &rv);
+    return @as(answer_t, rv[0]);
+}
+
+fn oops_lines(input: []const u8) !answer_t {
+    var lines = std.mem.split(u8, std.mem.trimRight(u8, input, "\n"), "\n");
+
+    var acc: answer_t = 0;
+    while (lines.next()) |line| {
+        acc += try oops_line(line);
+    }
+    return acc;
+}
+
+test "oops_line" {
+    const t = std.testing;
+
+    try t.expectEqual(@as(answer_t, 16), try oops_line("vJrwpWtwJgWrhcsFMMfFFhFp"));
+}
+
+test "oops_lines" {
+    const t = std.testing;
+    const example =
+        \\vJrwpWtwJgWrhcsFMMfFFhFp
+        \\jqHRNqRjqzjGDLGLrsFMfFZSrLrFZsSL
+        \\PmmdzqPrVvPwwTWBwg
+        \\wMqvLMZHhHMvwLHjbvcjnnSBnvTQFn
+        \\ttgJtRGJQctTZtZT
+        \\CrZsJsPPZsGzwwsLwLmpwMDw
+    ;
+
+    try t.expectEqual(@as(answer_t, 157), try oops_lines(example));
 }
 
 pub fn main() !void {}
