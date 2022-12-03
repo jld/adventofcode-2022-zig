@@ -59,3 +59,28 @@ pub fn main() !void {
 
     try bw.flush();
 }
+
+const expect = std.testing.expect;
+const test_allocator = std.testing.allocator;
+
+test "day01 example 1" {
+    const input =
+        \\1000
+        \\2000
+        \\3000
+        \\
+        \\4000
+        \\
+        \\5000
+        \\6000
+        \\
+        \\7000
+        \\8000
+        \\9000
+        \\
+        \\10000
+    ;
+    const info = try elf_info(test_allocator, input);
+    try expect(info.max == 24000);
+    try expect(info.top3.? == 45000);
+}
