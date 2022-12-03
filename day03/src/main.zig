@@ -59,6 +59,23 @@ const Sack = struct {
     fn isect(self: Sack, other: Sack) Sack {
         return Sack{ .bits = self.bits & other.bits };
     }
+
+    fn unpack(self: Sack, comptime count: usize, out: *[count]item_t) !void {
+        var i: usize = 0;
+        var bits = self.bits;
+        while (bits != 0) {
+            if (i >= count) {
+                return error.SackTooBig;
+            }
+            const item: item_t = @ctz(bits) + 1;
+            bits &= ~Sack.item_mask(item);
+            out[i] = item;
+            i += 1;
+        }
+        if (i < count) {
+            return error.SackTooSmall;
+        }
+    }
 };
 
 test "Sack add/has" {
@@ -122,6 +139,34 @@ test "Sack isect" {
     try t.expect(!sack.has(32));
     try t.expect(!sack.has(36));
     try t.expect(!sack.has(38));
+}
+
+test "Sack unpack" {
+    const t = std.testing;
+
+    var sack_0 = Sack{};
+    var sack_1 = sack_0;
+    sack_1.add(16);
+    var sack_3 = sack_1;
+    sack_3.add(38);
+    sack_3.add(2);
+
+    var buf_0: [0]item_t = undefined;
+    var buf_1: [1]item_t = undefined;
+    var buf_3: [3]item_t = undefined;
+
+    try t.expectError(error.SackTooBig, sack_1.unpack(0, &buf_0));
+    try t.expectError(error.SackTooSmall, sack_0.unpack(1, &buf_1));
+    try t.expectError(error.SackTooBig, sack_3.unpack(1, &buf_1));
+    try t.expectError(error.SackTooSmall, sack_1.unpack(3, &buf_3));
+
+    try sack_0.unpack(0, &buf_0);
+    try sack_1.unpack(1, &buf_1);
+    try t.expect(buf_1[0] == 16);
+    try sack_3.unpack(3, &buf_3);
+    try t.expect(buf_3[0] == 2);
+    try t.expect(buf_3[1] == 16);
+    try t.expect(buf_3[2] == 38);
 }
 
 pub fn main() !void {}
