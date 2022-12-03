@@ -121,4 +121,25 @@ test "score_game" {
     try t.expectEqual(@as(score_t, 15), try score_game(text));
 }
 
-pub fn main() !void {}
+pub fn main() !void {
+    const max_input: usize = 0x8000_0000;
+
+    const stdin_file = std.io.getStdIn().reader();
+    var br = std.io.bufferedReader(stdin_file);
+    const stdin = br.reader();
+
+    const stdout_file = std.io.getStdOut().writer();
+    var bw = std.io.bufferedWriter(stdout_file);
+    const stdout = bw.writer();
+
+    var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
+    defer std.debug.assert(!general_purpose_allocator.deinit());
+    const gpa = general_purpose_allocator.allocator();
+
+    var input = try stdin.readAllAlloc(gpa, max_input);
+    defer gpa.free(input);
+
+    try stdout.print("{}\n", .{try score_game(input)});
+
+    try bw.flush();
+}
