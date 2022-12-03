@@ -216,6 +216,44 @@ test "oops_lines" {
     try t.expectEqual(@as(answer_t, 157), try oops_lines(example));
 }
 
+fn find_badge(e0: []const u8, e1: []const u8, e2: []const u8) !answer_t {
+    var s0 = Sack{};
+    var s1 = Sack{};
+    var s2 = Sack{};
+    try s0.add_str(e0);
+    try s1.add_str(e1);
+    try s2.add_str(e2);
+    var rv: [1]item_t = undefined;
+    try s0.isect(s1).isect(s2).unpack(1, &rv);
+    return @as(answer_t, rv[0]);
+}
+
+fn find_badges(input: []const u8) !answer_t {
+    var lines = std.mem.split(u8, std.mem.trimRight(u8, input, "\n"), "\n");
+
+    var acc: answer_t = 0;
+    while (lines.next()) |e0| {
+        const e1 = lines.next() orelse return error.UnevenGroup;
+        const e2 = lines.next() orelse return error.UnevenGroup;
+        acc += try find_badge(e0, e1, e2);
+    }
+    return acc;
+}
+
+test "find_badges" {
+    const t = std.testing;
+    const example =
+        \\vJrwpWtwJgWrhcsFMMfFFhFp
+        \\jqHRNqRjqzjGDLGLrsFMfFZSrLrFZsSL
+        \\PmmdzqPrVvPwwTWBwg
+        \\wMqvLMZHhHMvwLHjbvcjnnSBnvTQFn
+        \\ttgJtRGJQctTZtZT
+        \\CrZsJsPPZsGzwwsLwLmpwMDw
+    ;
+
+    try t.expectEqual(@as(answer_t, 70), try find_badges(example));
+}
+
 pub fn main() !void {
     const max_input: usize = 0x4000_0000;
 
@@ -235,6 +273,6 @@ pub fn main() !void {
     var input = try stdin.readAllAlloc(gpa, max_input);
     defer gpa.free(input);
 
-    try stdout.print("{}\n", .{try oops_lines(input)});
+    try stdout.print("{} {}\n", .{ try oops_lines(input), try find_badges(input) });
     try bw.flush();
 }
