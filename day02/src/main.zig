@@ -101,4 +101,24 @@ test "parse_round" {
     try validate("C Z", .scissors, .scissors);
 }
 
+fn score_game(input: []const u8) !score_t {
+    var lines = std.mem.split(u8, std.mem.trimRight(u8, input, "\n"), "\n");
+    var acc: score_t = 0;
+    while (lines.next()) |line| {
+        acc += (try parse_round(line)).score();
+    }
+    return acc;
+}
+
+test "score_game" {
+    const t = std.testing;
+    const text =
+        \\A Y
+        \\B X
+        \\C Z
+    ;
+
+    try t.expectEqual(@as(score_t, 15), try score_game(text));
+}
+
 pub fn main() !void {}
