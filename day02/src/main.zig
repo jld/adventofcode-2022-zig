@@ -1,4 +1,5 @@
 const std = @import("std");
+const util = @import("aoc-util");
 
 const Shape = enum(u3) {
     rock,
@@ -220,26 +221,10 @@ test "score_p2" {
     try t.expectEqual(@as(score_t, 12), try score_p2(example));
 }
 
+fn io_main(ctx: util.IOContext) !void {
+    try ctx.stdout.print("{} {}\n", .{ try score_p1(ctx.input), try score_p2(ctx.input) });
+}
+
 pub fn main() !void {
-    const max_input: usize = 0x4000_0000;
-
-    // Someday I'll factor all this out.
-    const stdin_file = std.io.getStdIn().reader();
-    var br = std.io.bufferedReader(stdin_file);
-    const stdin = br.reader();
-
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
-
-    var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
-    defer std.debug.assert(!general_purpose_allocator.deinit());
-    const gpa = general_purpose_allocator.allocator();
-
-    var input = try stdin.readAllAlloc(gpa, max_input);
-    defer gpa.free(input);
-
-    // Doing the line splitting etc. twice, o noes.
-    try stdout.print("{} {}\n", .{ try score_p1(input), try score_p2(input) });
-    try bw.flush();
+    try util.io_shell(io_main);
 }

@@ -14,6 +14,7 @@ pub fn build(b: *std.build.Builder) void {
     const exe = b.addExecutable("day02", "src/main.zig");
     exe.setTarget(target);
     exe.setBuildMode(mode);
+    exe.addPackagePath("aoc-util", "../lib/aoc-util.zig");
     exe.install();
 
     const run_cmd = exe.run();
