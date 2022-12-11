@@ -1,4 +1,6 @@
 const std = @import("std");
+const util = @import("aoc-util");
+
 const item_t = u6;
 const answer_t = i64;
 
@@ -229,7 +231,7 @@ fn find_badge(e0: []const u8, e1: []const u8, e2: []const u8) !answer_t {
 }
 
 fn find_badges(input: []const u8) !answer_t {
-    var lines = std.mem.split(u8, std.mem.trimRight(u8, input, "\n"), "\n");
+    var lines = util.lines(input);
 
     var acc: answer_t = 0;
     while (lines.next()) |e0| {
@@ -254,25 +256,10 @@ test "find_badges" {
     try t.expectEqual(@as(answer_t, 70), try find_badges(example));
 }
 
+fn io_main(ctx: util.IOContext) !void {
+    try ctx.stdout.print("{} {}\n", .{ try oops_lines(ctx.input), try find_badges(ctx.input) });
+}
+
 pub fn main() !void {
-    const max_input: usize = 0x4000_0000;
-
-    // Someday I'll factor all this out.
-    const stdin_file = std.io.getStdIn().reader();
-    var br = std.io.bufferedReader(stdin_file);
-    const stdin = br.reader();
-
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
-
-    var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
-    defer std.debug.assert(!general_purpose_allocator.deinit());
-    const gpa = general_purpose_allocator.allocator();
-
-    var input = try stdin.readAllAlloc(gpa, max_input);
-    defer gpa.free(input);
-
-    try stdout.print("{} {}\n", .{ try oops_lines(input), try find_badges(input) });
-    try bw.flush();
+    try util.io_shell(io_main);
 }

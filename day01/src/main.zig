@@ -1,7 +1,7 @@
 const std = @import("std");
+const util = @import("aoc-util");
 
 const food_t = i64;
-const max_input: usize = 0x8000_0000;
 
 const ElfInfo = struct {
     max: food_t,
@@ -9,7 +9,7 @@ const ElfInfo = struct {
 };
 
 fn elf_info(alloc: std.mem.Allocator, input: []const u8) !ElfInfo {
-    var lines = std.mem.split(u8, std.mem.trimRight(u8, input, "\n"), "\n");
+    var lines = util.lines(input);
     var elf_buf = std.ArrayList(food_t).init(alloc);
     defer elf_buf.deinit();
 
@@ -34,30 +34,17 @@ fn elf_info(alloc: std.mem.Allocator, input: []const u8) !ElfInfo {
     return rv;
 }
 
-pub fn main() !void {
-    const stdin_file = std.io.getStdIn().reader();
-    var br = std.io.bufferedReader(stdin_file);
-    const stdin = br.reader();
-
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
-
-    var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
-    defer std.debug.assert(!general_purpose_allocator.deinit());
-    const gpa = general_purpose_allocator.allocator();
-
-    var input = try stdin.readAllAlloc(gpa, max_input);
-    defer gpa.free(input);
-
-    const info = try elf_info(gpa, input);
-    try stdout.print("Max Elf: {}\n", .{info.max});
+fn io_main(ctx: util.IOContext) !void {
+    const info = try elf_info(ctx.gpa, ctx.input);
+    try ctx.stdout.print("Max Elf: {}\n", .{info.max});
 
     if (info.top3) |top3| {
-        try stdout.print("Top 3: {}\n", .{top3});
+        try ctx.stdout.print("Top 3: {}\n", .{top3});
     }
+}
 
-    try bw.flush();
+pub fn main() !void {
+    try util.io_shell(io_main);
 }
 
 const expect = std.testing.expect;
