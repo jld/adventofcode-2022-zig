@@ -77,10 +77,42 @@ test "more examples" {
     }
 }
 
+const Starts = struct {
+    sop: usize,
+    som: usize,
+};
+
+fn starts(a: Allocator, str: []const u8) !Starts {
+    var tab = try Tableau.init(a, u8, str, 14);
+    defer tab.deinit();
+    return Starts{
+        .sop = tab.findFirst(4) orelse return error.NotFound,
+        .som = tab.findFirst(14) orelse return error.NotFound,
+    };
+}
+
+test "yet more examples" {
+    const t = std.testing;
+    const examples = .{
+        .{ 19, "mjqjpqmgbljsphdztnvjfqwrcgsmlb" },
+        .{ 23, "bvwbjplbgvbhsrlpgdmjqwftvncz" },
+        .{ 23, "nppdvjthqldpwncqszvftbrmjlhg" },
+        .{ 29, "nznrnfrfntjfmvfwmzdfjlvtqnbhcprsg" },
+        .{ 26, "zcfzfwzzqfrljwzlrfnpqdbhtmscgvjw" },
+    };
+
+    inline for (examples) |example| {
+        const sts = try starts(t.allocator, example[1]);
+        try t.expectEqual(try first4(t.allocator, example[1]), sts.sop);
+        try t.expectEqual(@as(usize, example[0]), sts.som);
+    }
+}
+
 fn io_main(ctx: util.IOContext) !void {
     var lines = util.lines(ctx.input);
     while (lines.next()) |line| {
-        try ctx.stdout.print("{}\n", .{try first4(ctx.gpa, line)});
+        var sts = try starts(ctx.gpa, line);
+        try ctx.stdout.print("{} {}\n", .{ sts.sop, sts.som });
     }
 }
 
