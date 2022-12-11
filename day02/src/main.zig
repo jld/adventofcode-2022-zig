@@ -183,7 +183,7 @@ test "rscore_p2" {
 }
 
 fn score(comptime Line: type, comptime rscore_fn: anytype, input: []const u8) !score_t {
-    var lines = std.mem.split(u8, std.mem.trimRight(u8, input, "\n"), "\n");
+    var lines = util.lines(input);
 
     var acc: score_t = 0;
     while (lines.next()) |line| {

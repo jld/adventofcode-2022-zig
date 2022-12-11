@@ -1,5 +1,9 @@
 const std = @import("std");
 
+fn do_packages(exe: *std.build.LibExeObjStep) void {
+    exe.addPackagePath("aoc-util", "../lib/aoc-util.zig");
+}
+
 pub fn build(b: *std.build.Builder) void {
     // Standard target options allows the person running `zig build` to choose
     // what target to build for. Here we do not override the defaults, which
@@ -14,7 +18,7 @@ pub fn build(b: *std.build.Builder) void {
     const exe = b.addExecutable("day02", "src/main.zig");
     exe.setTarget(target);
     exe.setBuildMode(mode);
-    exe.addPackagePath("aoc-util", "../lib/aoc-util.zig");
+    do_packages(exe);
     exe.install();
 
     const run_cmd = exe.run();
@@ -29,6 +33,7 @@ pub fn build(b: *std.build.Builder) void {
     const exe_tests = b.addTest("src/main.zig");
     exe_tests.setTarget(target);
     exe_tests.setBuildMode(mode);
+    do_packages(exe_tests);
 
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&exe_tests.step);
