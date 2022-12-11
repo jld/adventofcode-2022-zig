@@ -1,4 +1,5 @@
 const std = @import("std");
+const util = @import("aoc-util");
 const BitSet = std.bit_set.DynamicBitSetUnmanaged;
 const Allocator = std.mem.Allocator;
 
@@ -76,4 +77,13 @@ test "more examples" {
     }
 }
 
-pub fn main() !void {}
+fn io_main(ctx: util.IOContext) !void {
+    var lines = util.lines(ctx.input);
+    while (lines.next()) |line| {
+        try ctx.stdout.print("{}\n", .{try first4(ctx.gpa, line)});
+    }
+}
+
+pub fn main() !void {
+    try util.io_shell(io_main);
+}
