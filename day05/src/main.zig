@@ -7,6 +7,12 @@ const Mov = struct {
     n: usize,
     src: usize,
     dst: usize,
+
+    fn expect(self: *const Mov, xn: usize, xs: usize, xd: usize) !void {
+        try std.testing.expectEqual(xn, self.n);
+        try std.testing.expectEqual(xs, self.src);
+        try std.testing.expectEqual(xd, self.dst);
+    }
 };
 
 const State = struct {
@@ -117,6 +123,51 @@ test "State/move" {
     try t.expect(s.check(0, "C"));
     try t.expect(s.check(1, "M"));
     try t.expect(s.check(2, "PDNZ"));
+}
+
+fn check_word(exp: []const u8, act: []const u8) !void {
+    if (!std.mem.eql(u8, exp, act)) {
+        // std.debug.print("Keyword error: expected {s}, got {s}\n", .{ exp, act });
+        return error.BadKeyword;
+    }
+}
+
+fn parse_loc(word: []const u8) !usize {
+    if (word.len != 1 or word[0] < '1' or word[0] > '9') {
+        return error.Overflow;
+    }
+    return @as(usize, word[0] - '1');
+}
+
+fn parse_move(input: []const u8) !Mov {
+    const words = try util.split_n(input, " ", 6);
+    try check_word("move", words[0]);
+    try check_word("from", words[2]);
+    try check_word("to", words[4]);
+    return Mov{
+        .n = try std.fmt.parseUnsigned(usize, words[1], 10),
+        .src = try parse_loc(words[3]),
+        .dst = try parse_loc(words[5]),
+    };
+}
+
+test "parse_move" {
+    const t = std.testing;
+
+    const m0 = try parse_move("move 3 from 1 to 2");
+    try m0.expect(3, 0, 1);
+
+    const m1 = try parse_move("move 23 from 7 to 1");
+    try m1.expect(23, 6, 0);
+
+    const m2 = try parse_move("move 0 from 9 to 5");
+    try m2.expect(0, 8, 4);
+
+    try t.expectError(error.Overflow, parse_move("move 5 from 3 to 0"));
+    try t.expectError(error.Overflow, parse_move("move 5 from 3 to 10"));
+    try t.expectError(error.InvalidCharacter, parse_move("move -1 from 4 to 5"));
+    try t.expectError(error.BadKeyword, parse_move("copy 2 from 1 to 3"));
+    try t.expectError(error.BadKeyword, parse_move("move 2 to 1 from 3"));
 }
 
 pub fn main() !void {}
