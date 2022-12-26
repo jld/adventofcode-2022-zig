@@ -17,6 +17,11 @@ const Mov = struct {
     }
 };
 
+const Mode = enum {
+    LIFO,
+    FIFO,
+};
+
 const State = struct {
     stacks: [9]Stack,
 
@@ -33,11 +38,28 @@ const State = struct {
         }
     }
 
-    fn move(self: *State, mov: Mov) !void {
+    fn move_lifo(self: *State, mov: Mov) !void {
         var i: usize = 0;
         while (i < mov.n) : (i += 1) {
             const crate = self.stacks[mov.src].popOrNull() orelse return error.EmptyStack;
             try self.stacks[mov.dst].append(crate);
+        }
+    }
+
+    fn move_fifo(self: *State, mov: Mov) !void {
+        if (mov.src == mov.dst) {
+            return;
+        }
+        const src_items = self.stacks[mov.src].items;
+        const src_new_end = src_items.len - mov.n;
+        try self.add_n(mov.dst, src_items[src_new_end..]);
+        try self.stacks[mov.src].resize(src_new_end);
+    }
+
+    fn move(self: *State, mov: Mov, mode: Mode) !void {
+        switch (mode) {
+            Mode.LIFO => return self.move_lifo(mov),
+            Mode.FIFO => return self.move_fifo(mov),
         }
     }
 
@@ -103,7 +125,7 @@ test "State/message" {
     try t.expect(std.mem.eql(u8, &s.message(), "CMZ      "));
 }
 
-test "State/move" {
+test "State/move_lifo" {
     const t = std.testing;
     var s = State.init(t.allocator);
     defer s.deinit();
@@ -112,25 +134,55 @@ test "State/move" {
     try s.add_n(1, "MCD");
     try s.add_n(2, "P");
 
-    try s.move(.{ .n = 1, .src = 1, .dst = 0 });
+    try s.move_lifo(.{ .n = 1, .src = 1, .dst = 0 });
     try t.expect(s.check(0, "ZND"));
     try t.expect(s.check(1, "MC"));
     try t.expect(s.check(2, "P"));
 
-    try s.move(.{ .n = 3, .src = 0, .dst = 2 });
+    try s.move_lifo(.{ .n = 3, .src = 0, .dst = 2 });
     try t.expect(s.check(0, ""));
     try t.expect(s.check(1, "MC"));
     try t.expect(s.check(2, "PDNZ"));
 
-    try s.move(.{ .n = 2, .src = 1, .dst = 0 });
+    try s.move_lifo(.{ .n = 2, .src = 1, .dst = 0 });
     try t.expect(s.check(0, "CM"));
     try t.expect(s.check(1, ""));
     try t.expect(s.check(2, "PDNZ"));
 
-    try s.move(.{ .n = 1, .src = 0, .dst = 1 });
+    try s.move_lifo(.{ .n = 1, .src = 0, .dst = 1 });
     try t.expect(s.check(0, "C"));
     try t.expect(s.check(1, "M"));
     try t.expect(s.check(2, "PDNZ"));
+}
+
+test "State/move_fifo" {
+    const t = std.testing;
+    var s = State.init(t.allocator);
+    defer s.deinit();
+
+    try s.add_n(0, "ZN");
+    try s.add_n(1, "MCD");
+    try s.add_n(2, "P");
+
+    try s.move_fifo(.{ .n = 1, .src = 1, .dst = 0 });
+    try t.expect(s.check(0, "ZND"));
+    try t.expect(s.check(1, "MC"));
+    try t.expect(s.check(2, "P"));
+
+    try s.move_fifo(.{ .n = 3, .src = 0, .dst = 2 });
+    try t.expect(s.check(0, ""));
+    try t.expect(s.check(1, "MC"));
+    try t.expect(s.check(2, "PZND"));
+
+    try s.move_fifo(.{ .n = 2, .src = 1, .dst = 0 });
+    try t.expect(s.check(0, "MC"));
+    try t.expect(s.check(1, ""));
+    try t.expect(s.check(2, "PZND"));
+
+    try s.move_fifo(.{ .n = 1, .src = 0, .dst = 1 });
+    try t.expect(s.check(0, "M"));
+    try t.expect(s.check(1, "C"));
+    try t.expect(s.check(2, "PZND"));
 }
 
 fn check_word(exp: []const u8, act: []const u8) !void {
@@ -276,7 +328,7 @@ test "parse_boxline/stk" {
     try t.expect(s.check(2, "P"));
 }
 
-fn rearrange_p1(allocator: std.mem.Allocator, input: []const u8) !State {
+fn rearrange(allocator: std.mem.Allocator, input: []const u8, mode: Mode) !State {
     var state = State.init(allocator);
     errdefer state.deinit();
 
@@ -294,13 +346,19 @@ fn rearrange_p1(allocator: std.mem.Allocator, input: []const u8) !State {
     state.flip();
 
     while (lines.next()) |line| {
-        try state.move(try parse_move(line));
+        try state.move(try parse_move(line), mode);
     }
 
     return state;
 }
 
-test "rearrange_p1" {
+fn get_msg(allocator: std.mem.Allocator, input: []const u8, mode: Mode) ![9]u8 {
+    var state = try rearrange(allocator, input, mode);
+    defer state.deinit();
+    return state.message();
+}
+
+test "rearrange" {
     const t = std.testing;
     // N.B. there is load-bearing trailing whitespace here:
     const example =
@@ -315,7 +373,7 @@ test "rearrange_p1" {
         \\move 1 from 1 to 2
     ;
 
-    var s = try rearrange_p1(t.allocator, example);
+    var s = try rearrange(t.allocator, example, Mode.LIFO);
     defer s.deinit();
 
     try t.expect(s.check(0, "C"));
@@ -324,12 +382,16 @@ test "rearrange_p1" {
 }
 
 fn io_main(ctx: util.IOContext) !void {
-    var state = try rearrange_p1(ctx.gpa, ctx.input);
-    defer state.deinit();
+    const msg9000 = try get_msg(ctx.gpa, ctx.input, Mode.LIFO);
+    const msg9001 = try get_msg(ctx.gpa, ctx.input, Mode.FIFO);
 
-    try ctx.stdout.print("{s}\n", .{state.message()});
+    try ctx.stdout.print("{s} {s}\n", .{ msg9000, msg9001 });
 }
 
 pub fn main() !void {
     try util.io_shell(io_main);
 }
+
+// Something I could do but probably won't: State.clone, then have
+// parsing the input yield a State and an owned slice of Move, so I'm
+// not duplicating all the text stuff.
