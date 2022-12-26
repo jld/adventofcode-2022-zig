@@ -81,8 +81,13 @@ test "oops" {
     }
 }
 
+fn oops_lineproc(line: []const u8) !usize {
+    const ee = try Pair.parse(line);
+    return if (ee.oops()) 1 else 0;
+}
+
 fn io_main(ctx: util.IOContext) !void {
-    _ = ctx;
+    try ctx.stdout.print("{}\n", .{try util.sum_lines(usize, ctx.input, oops_lineproc)});
 }
 
 pub fn main() !void {

@@ -40,6 +40,15 @@ pub fn lines(input: []const u8) std.mem.SplitIterator(u8) {
     return std.mem.split(u8, std.mem.trimRight(u8, input, "\n"), "\n");
 }
 
+pub fn sum_lines(comptime num_t: type, input: []const u8, f: anytype) !num_t {
+    var acc: num_t = 0;
+    var li = lines(input);
+    while (li.next()) |line| {
+        acc += try f(line);
+    }
+    return acc;
+}
+
 pub fn split_n(input: []const u8, delim: []const u8, comptime n: usize) ![n][]const u8 {
     var rv: [n][]const u8 = undefined;
 
