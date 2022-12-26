@@ -39,3 +39,21 @@ pub fn io_shell(main_fn: anytype) !void {
 pub fn lines(input: []const u8) std.mem.SplitIterator(u8) {
     return std.mem.split(u8, std.mem.trimRight(u8, input, "\n"), "\n");
 }
+
+pub fn split_n(input: []const u8, delim: []const u8, comptime n: usize) ![n][]const u8 {
+    var rv: [n][]const u8 = undefined;
+
+    var iter = std.mem.split(u8, input, delim);
+    var i: usize = 0;
+    while (iter.next()) |thing| {
+        if (i >= n) {
+            return error.SplitOverflow;
+        }
+        rv[i] = thing;
+        i += 1;
+    }
+    if (i != n) {
+        return error.SplitUnderflow;
+    }
+    return rv;
+}
