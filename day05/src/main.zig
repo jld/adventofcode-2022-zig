@@ -1,6 +1,8 @@
 const std = @import("std");
 const util = @import("aoc-util");
 
+const assert = std.debug.assert;
+
 const Stack = std.ArrayList(u8);
 
 const Mov = struct {
@@ -61,6 +63,12 @@ const State = struct {
             out.* = self.top(i) orelse ' ';
         }
         return rv;
+    }
+
+    fn flip(self: *State) void {
+        for (self.stacks) |*stk| {
+            std.mem.reverse(u8, stk.items);
+        }
     }
 };
 
@@ -168,6 +176,104 @@ test "parse_move" {
     try t.expectError(error.InvalidCharacter, parse_move("move -1 from 4 to 5"));
     try t.expectError(error.BadKeyword, parse_move("copy 2 from 1 to 3"));
     try t.expectError(error.BadKeyword, parse_move("move 2 to 1 from 3"));
+}
+
+fn parse_boxline(state: *State, line: []const u8) !bool {
+    if (@mod(line.len, 4) != 3) {
+        return error.RaggedLine;
+    }
+
+    var i: usize = 3;
+    while (i < line.len) : (i += 4) {
+        if (line[i] != ' ') {
+            return error.ParseColumnError;
+        }
+    }
+
+    if (line[0] == ' ' and line[1] != ' ') {
+        i = 0;
+        while (i < line.len) : (i += 4) {
+            assert(i + 2 < line.len);
+            if (line[i] != ' ' or line[i + 2] != ' ') {
+                return error.ParseNumberPadError;
+            }
+            if (line[i + 1] != '1' + @intCast(u8, i / 4)) {
+                return error.ParseNumberError;
+            }
+        }
+        return false;
+    }
+
+    i = 0;
+    while (i < line.len) : (i += 4) {
+        assert(i + 2 < line.len);
+        if (line[i] == ' ') {
+            if (line[i + 1] != ' ' or line[i + 2] != ' ') {
+                return error.ParseCrateError;
+            }
+            continue;
+        }
+        if (line[i] != '[' or line[i + 2] != ']') {
+            return error.ParseCrateError;
+        }
+        try state.add(i / 4, line[i + 1]);
+    }
+    return true;
+}
+
+test "parse_boxline/ret" {
+    const t = std.testing;
+    var s = State.init(t.allocator);
+    defer s.deinit();
+
+    try t.expect(try parse_boxline(&s, "[A]"));
+    try t.expect(try parse_boxline(&s, "[A] [B]"));
+    try t.expect(try parse_boxline(&s, "    [C]"));
+    try t.expect(try parse_boxline(&s, "        [D]     [E]"));
+
+    try t.expect(!try parse_boxline(&s, " 1   2   3 "));
+    try t.expect(!try parse_boxline(&s, " 1 "));
+    try t.expect(!try parse_boxline(&s, " 1   2   3   4   5   6   7   8   9 "));
+}
+
+test "parse_boxline/err" {
+    const t = std.testing;
+    var s = State.init(t.allocator);
+    defer s.deinit();
+
+    try t.expectError(error.RaggedLine, parse_boxline(&s, ""));
+    try t.expectError(error.RaggedLine, parse_boxline(&s, "X"));
+    try t.expectError(error.RaggedLine, parse_boxline(&s, " 1"));
+    try t.expectError(error.RaggedLine, parse_boxline(&s, "[X] "));
+
+    try t.expectError(error.ParseColumnError, parse_boxline(&s, "[A]-[B]"));
+    try t.expectError(error.ParseNumberPadError, parse_boxline(&s, " 1  [2]"));
+    try t.expectError(error.ParseNumberError, parse_boxline(&s, " 1   2   5   4 "));
+    try t.expectError(error.ParseNumberError, parse_boxline(&s, " A   B   C "));
+
+    try t.expectError(error.ParseCrateError, parse_boxline(&s, "(A)"));
+    try t.expectError(error.ParseCrateError, parse_boxline(&s, "[A   B]"));
+    try t.expectError(error.ParseCrateError, parse_boxline(&s, "[A]  B "));
+    try t.expectError(error.ParseCrateError, parse_boxline(&s, "  A"));
+
+    try t.expectError(error.ParseColumnError, parse_boxline(&s, "move 10 from 2 to 3"));
+}
+
+test "parse_boxline/stk" {
+    const t = std.testing;
+    var s = State.init(t.allocator);
+    defer s.deinit();
+
+    try t.expect(try parse_boxline(&s, "    [D]"));
+    try t.expect(try parse_boxline(&s, "[N] [C]"));
+    try t.expect(try parse_boxline(&s, "[Z] [M] [P]"));
+    try t.expect(!try parse_boxline(&s, " 1   2   3 "));
+
+    s.flip();
+
+    try t.expect(s.check(0, "ZN"));
+    try t.expect(s.check(1, "MCD"));
+    try t.expect(s.check(2, "P"));
 }
 
 pub fn main() !void {}
