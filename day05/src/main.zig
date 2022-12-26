@@ -147,8 +147,8 @@ fn parse_loc(word: []const u8) !usize {
     return @as(usize, word[0] - '1');
 }
 
-fn parse_move(input: []const u8) !Mov {
-    const words = try util.split_n(input, " ", 6);
+fn parse_move(line: []const u8) !Mov {
+    const words = try util.split_n(line, " ", 6);
     try check_word("move", words[0]);
     try check_word("from", words[2]);
     try check_word("to", words[4]);
@@ -186,7 +186,7 @@ fn parse_boxline(state: *State, line: []const u8) !bool {
     var i: usize = 3;
     while (i < line.len) : (i += 4) {
         if (line[i] != ' ') {
-            return error.ParseColumnError;
+            return error.BadColumnBreak;
         }
     }
 
@@ -195,10 +195,10 @@ fn parse_boxline(state: *State, line: []const u8) !bool {
         while (i < line.len) : (i += 4) {
             assert(i + 2 < line.len);
             if (line[i] != ' ' or line[i + 2] != ' ') {
-                return error.ParseNumberPadError;
+                return error.BadNumberPad;
             }
             if (line[i + 1] != '1' + @intCast(u8, i / 4)) {
-                return error.ParseNumberError;
+                return error.BadColumnNumber;
             }
         }
         return false;
@@ -209,12 +209,12 @@ fn parse_boxline(state: *State, line: []const u8) !bool {
         assert(i + 2 < line.len);
         if (line[i] == ' ') {
             if (line[i + 1] != ' ' or line[i + 2] != ' ') {
-                return error.ParseCrateError;
+                return error.CrateSyntax;
             }
             continue;
         }
         if (line[i] != '[' or line[i + 2] != ']') {
-            return error.ParseCrateError;
+            return error.CrateSyntax;
         }
         try state.add(i / 4, line[i + 1]);
     }
@@ -246,17 +246,17 @@ test "parse_boxline/err" {
     try t.expectError(error.RaggedLine, parse_boxline(&s, " 1"));
     try t.expectError(error.RaggedLine, parse_boxline(&s, "[X] "));
 
-    try t.expectError(error.ParseColumnError, parse_boxline(&s, "[A]-[B]"));
-    try t.expectError(error.ParseNumberPadError, parse_boxline(&s, " 1  [2]"));
-    try t.expectError(error.ParseNumberError, parse_boxline(&s, " 1   2   5   4 "));
-    try t.expectError(error.ParseNumberError, parse_boxline(&s, " A   B   C "));
+    try t.expectError(error.BadColumnBreak, parse_boxline(&s, "[A]-[B]"));
+    try t.expectError(error.BadNumberPad, parse_boxline(&s, " 1  [2]"));
+    try t.expectError(error.BadColumnNumber, parse_boxline(&s, " 1   2   5   4 "));
+    try t.expectError(error.BadColumnNumber, parse_boxline(&s, " A   B   C "));
 
-    try t.expectError(error.ParseCrateError, parse_boxline(&s, "(A)"));
-    try t.expectError(error.ParseCrateError, parse_boxline(&s, "[A   B]"));
-    try t.expectError(error.ParseCrateError, parse_boxline(&s, "[A]  B "));
-    try t.expectError(error.ParseCrateError, parse_boxline(&s, "  A"));
+    try t.expectError(error.CrateSyntax, parse_boxline(&s, "(A)"));
+    try t.expectError(error.CrateSyntax, parse_boxline(&s, "[A   B]"));
+    try t.expectError(error.CrateSyntax, parse_boxline(&s, "[A]  B "));
+    try t.expectError(error.CrateSyntax, parse_boxline(&s, "  A"));
 
-    try t.expectError(error.ParseColumnError, parse_boxline(&s, "move 10 from 2 to 3"));
+    try t.expectError(error.BadColumnBreak, parse_boxline(&s, "move 10 from 2 to 3"));
 }
 
 test "parse_boxline/stk" {
@@ -274,6 +274,53 @@ test "parse_boxline/stk" {
     try t.expect(s.check(0, "ZN"));
     try t.expect(s.check(1, "MCD"));
     try t.expect(s.check(2, "P"));
+}
+
+fn rearrange_p1(allocator: std.mem.Allocator, input: []const u8) !State {
+    var state = State.init(allocator);
+    errdefer state.deinit();
+
+    var lines = util.lines(input);
+    while (true) {
+        const line = lines.next() orelse return error.TruncatedInput;
+        if (!try parse_boxline(&state, line)) {
+            const empty = lines.next() orelse return error.TruncatedInput;
+            if (empty.len != 0) {
+                return error.BadSectionBreak;
+            }
+            break;
+        }
+    }
+    state.flip();
+
+    while (lines.next()) |line| {
+        try state.move(try parse_move(line));
+    }
+
+    return state;
+}
+
+test "rearrange_p1" {
+    const t = std.testing;
+    // N.B. there is load-bearing trailing whitespace here:
+    const example =
+        \\    [D]    
+        \\[N] [C]    
+        \\[Z] [M] [P]
+        \\ 1   2   3 
+        \\
+        \\move 1 from 2 to 1
+        \\move 3 from 1 to 3
+        \\move 2 from 2 to 1
+        \\move 1 from 1 to 2
+    ;
+
+    var s = try rearrange_p1(t.allocator, example);
+    defer s.deinit();
+
+    try t.expect(s.check(0, "C"));
+    try t.expect(s.check(1, "M"));
+    try t.expect(s.check(2, "PDNZ"));
 }
 
 pub fn main() !void {}
