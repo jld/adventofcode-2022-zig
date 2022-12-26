@@ -323,4 +323,13 @@ test "rearrange_p1" {
     try t.expect(s.check(2, "PDNZ"));
 }
 
-pub fn main() !void {}
+fn io_main(ctx: util.IOContext) !void {
+    var state = try rearrange_p1(ctx.gpa, ctx.input);
+    defer state.deinit();
+
+    try ctx.stdout.print("{s}\n", .{state.message()});
+}
+
+pub fn main() !void {
+    try util.io_shell(io_main);
+}
