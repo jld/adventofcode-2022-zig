@@ -18,22 +18,41 @@ const Elf = struct {
     fn contains(self: Elf, other: Elf) bool {
         return other.lo >= self.lo and other.hi <= self.hi;
     }
+    fn overlaps(self: Elf, other: Elf) bool {
+        // zig fmt: off
+        return (self.lo <= other.lo and self.hi >= other.lo)
+            or (other.lo <= self.lo and other.hi >= self.lo);
+        // zig fmt: on
+    }
 };
+
+fn elf(lo: num_t, hi: num_t) Elf {
+    return Elf{ .lo = lo, .hi = hi };
+}
 
 test "contains" {
     const t = std.testing;
-    const e28 = Elf{ .lo = 2, .hi = 8 };
-    const e37 = Elf{ .lo = 3, .hi = 7 };
-    const e66 = Elf{ .lo = 6, .hi = 6 };
-    const e46 = Elf{ .lo = 4, .hi = 6 };
 
-    try t.expect(e28.contains(e37));
-    try t.expect(e46.contains(e66));
+    try t.expect(elf(2, 8).contains(elf(3, 7)));
+    try t.expect(elf(4, 6).contains(elf(6, 6)));
 
-    try t.expect(!e37.contains(e28));
-    try t.expect(!e66.contains(e46));
+    try t.expect(!elf(3, 7).contains(elf(2, 8)));
+    try t.expect(!elf(6, 6).contains(elf(4, 6)));
 
-    try t.expect(e37.contains(e37));
+    try t.expect(elf(3, 7).contains(elf(3, 7)));
+}
+
+test "overlaps" {
+    const t = std.testing;
+    // The implementation is obviously symmetric so I don't think I
+    // need to test self/other swaps.
+
+    try t.expect(!elf(2, 4).overlaps(elf(6, 8)));
+    try t.expect(!elf(2, 3).overlaps(elf(4, 5)));
+    try t.expect(elf(5, 7).overlaps(elf(7, 9)));
+    try t.expect(elf(2, 8).overlaps(elf(3, 7)));
+    try t.expect(elf(6, 6).overlaps(elf(4, 6)));
+    try t.expect(elf(2, 6).overlaps(elf(4, 8)));
 }
 
 const Pair = struct {
@@ -86,8 +105,15 @@ fn oops_lineproc(line: []const u8) !usize {
     return if (ee.oops()) 1 else 0;
 }
 
+fn overlap_lineproc(line: []const u8) !usize {
+    const ee = try Pair.parse(line);
+    return if (ee.e0.overlaps(ee.e1)) 1 else 0;
+}
+
 fn io_main(ctx: util.IOContext) !void {
-    try ctx.stdout.print("{}\n", .{try util.sum_lines(usize, ctx.input, oops_lineproc)});
+    const p0 = try util.sum_lines(usize, ctx.input, oops_lineproc);
+    const p1 = try util.sum_lines(usize, ctx.input, overlap_lineproc);
+    try ctx.stdout.print("{} {}\n", .{ p0, p1 });
 }
 
 pub fn main() !void {
