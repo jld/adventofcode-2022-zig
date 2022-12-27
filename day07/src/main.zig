@@ -248,11 +248,40 @@ test "sum_100k" {
     try t.expectEqual(@as(size_t, 95437), sum_100k(&fs));
 }
 
+fn find_space(fs: *const FileSys, target: size_t) ?size_t {
+    const used = fs.stat("").?.size;
+    if (used < target) {
+        return null;
+    }
+    const thresh = used - target;
+    var best: size_t = used;
+    var files = fs.files.valueIterator();
+    while (files.next()) |file| {
+        if (file.isDir and file.size >= thresh and file.size < best) {
+            best = file.size;
+        }
+    }
+    return best;
+}
+
+test "find_space" {
+    const t = std.testing;
+    const example = @embedFile("example0.txt");
+
+    var fs = try parse_tty(t.allocator, example);
+    defer fs.deinit();
+
+    try t.expectEqual(@as(size_t, 24933642), find_space(&fs, 40000000).?);
+    try t.expect(null == find_space(&fs, 50000000));
+}
+
 fn io_main(ctx: util.IOContext) !void {
     var fs = try parse_tty(ctx.gpa, ctx.input);
     defer fs.deinit();
 
-    try ctx.stdout.print("{}\n", .{sum_100k(&fs)});
+    const p1 = sum_100k(&fs);
+    const p2 = find_space(&fs, 40000000) orelse return error.ThisIsFine;
+    try ctx.stdout.print("{} {}\n", .{ p1, p2 });
 }
 
 pub fn main() !void {
