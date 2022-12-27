@@ -248,4 +248,13 @@ test "sum_100k" {
     try t.expectEqual(@as(size_t, 95437), sum_100k(&fs));
 }
 
-pub fn main() !void {}
+fn io_main(ctx: util.IOContext) !void {
+    var fs = try parse_tty(ctx.gpa, ctx.input);
+    defer fs.deinit();
+
+    try ctx.stdout.print("{}\n", .{sum_100k(&fs)});
+}
+
+pub fn main() !void {
+    try util.io_shell(io_main);
+}
