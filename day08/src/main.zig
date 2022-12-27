@@ -53,26 +53,30 @@ const Trees = struct {
         return y * @intCast(isize, self.xdim) + x;
     }
 
-    fn make_light(self: *const Self) !Light {
+    fn make_thing(self: *const Self, comptime Thing: type) !Thing {
         const xdu = self.xdim;
         const ydu = self.ydim;
         const xdi = @intCast(isize, xdu);
         const ydi = @intCast(isize, ydu);
 
-        var light = try Light.init(self.allocator, xdu, ydu);
+        var thing = try Thing.init(self.allocator, xdu, ydu);
 
         var y: isize = 0;
         while (y < ydi) : (y += 1) {
-            light.raycast(self, self.coord(0, y), self.coord(1, 0), xdu);
-            light.raycast(self, self.coord(xdi - 1, y), self.coord(-1, 0), xdu);
+            thing.raycast(self, 0, self.coord(0, y), self.coord(1, 0), xdu);
+            thing.raycast(self, 1, self.coord(xdi - 1, y), self.coord(-1, 0), xdu);
         }
         var x: isize = 0;
         while (x < xdi) : (x += 1) {
-            light.raycast(self, self.coord(x, 0), self.coord(0, 1), ydu);
-            light.raycast(self, self.coord(x, ydi - 1), self.coord(0, -1), ydu);
+            thing.raycast(self, 2, self.coord(x, 0), self.coord(0, 1), ydu);
+            thing.raycast(self, 3, self.coord(x, ydi - 1), self.coord(0, -1), ydu);
         }
 
-        return light;
+        return thing;
+    }
+
+    fn make_light(self: *const Self) !Light {
+        return self.make_thing(Light);
     }
 };
 
@@ -95,7 +99,8 @@ const Light = struct {
     allocator: Allocator,
     lmap: []bool,
 
-    fn raycast(self: *Self, trees: *const Trees, p0: isize, dp: isize, n: usize) void {
+    fn raycast(self: *Self, trees: *const Trees, dir: usize, p0: isize, dp: isize, n: usize) void {
+        _ = dir;
         var light: u8 = 0;
         var i: usize = 0;
         var p = p0;
