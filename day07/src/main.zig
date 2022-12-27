@@ -1,6 +1,7 @@
 const std = @import("std");
 const util = @import("aoc-util");
 const Allocator = std.mem.Allocator;
+const eql = std.mem.eql;
 
 const size_t = u63;
 
@@ -153,6 +154,114 @@ test "Path" {
     try p.up();
     try p.up();
     try t.expectError(error.IsRoot, p.up());
+}
+
+fn is_prompt(l: util.Lines) bool {
+    const rest = l.rest();
+    return rest.len == 0 or rest[0] == '$';
+}
+
+fn parse_tty(alloc: Allocator, input: []const u8) !FileSys {
+    var lines = util.lines(input);
+    if (!eql(u8, "$ cd /", lines.first())) {
+        return error.StartAtRoot;
+    }
+
+    var fs = FileSys.init(alloc);
+    errdefer fs.deinit();
+    try fs.mkdir("");
+
+    var cwd = Path.init(alloc);
+    defer cwd.deinit();
+
+    while (lines.next()) |line| {
+        if (!std.mem.startsWith(u8, line, "$ ")) {
+            return error.BadPrompt;
+        }
+        const cmd = line[2..];
+        if (std.mem.startsWith(u8, cmd, "cd ")) {
+            const dir = cmd[3..];
+            if (eql(u8, dir, "..")) {
+                try cwd.up();
+            } else {
+                try cwd.down(dir);
+            }
+        } else if (eql(u8, cmd, "ls")) {
+            while (!is_prompt(lines)) {
+                const dirent = lines.next().?;
+                const space = std.mem.indexOfAny(u8, dirent, " ") orelse return error.BadCommand;
+                const meta = dirent[0..space];
+                const name = dirent[space + 1 ..];
+                try cwd.down(name);
+                defer cwd.up() catch unreachable;
+                if (eql(u8, meta, "dir")) {
+                    try fs.mkdir(cwd.get());
+                } else {
+                    const size = try std.fmt.parseUnsigned(size_t, meta, 10);
+                    try fs.creat(cwd.get(), size);
+                }
+            }
+        } else {
+            return error.BadCommand;
+        }
+    }
+
+    return fs;
+}
+
+fn sum_100k(fs: *const FileSys) size_t {
+    var acc: size_t = 0;
+    var files = fs.files.valueIterator();
+    while (files.next()) |file| {
+        if (file.isDir and file.size <= 100000) {
+            acc += file.size;
+        }
+    }
+    return acc;
+}
+
+test "parse_tty" {
+    const t = std.testing;
+    const example =
+        \\$ cd /
+        \\$ ls
+        \\dir a
+        \\14848514 b.txt
+        \\8504156 c.dat
+        \\dir d
+        \\$ cd a
+        \\$ ls
+        \\dir e
+        \\29116 f
+        \\2557 g
+        \\62596 h.lst
+        \\$ cd e
+        \\$ ls
+        \\584 i
+        \\$ cd ..
+        \\$ cd ..
+        \\$ cd d
+        \\$ ls
+        \\4060174 j
+        \\8033020 d.log
+        \\5626152 d.ext
+        \\7214296 k
+    ;
+
+    var fs = try parse_tty(t.allocator, example);
+    defer fs.deinit();
+
+    try t.expect(fs.stat("").?.isDir);
+    try t.expect(fs.stat("/a").?.isDir);
+    try t.expect(!fs.stat("/a/f").?.isDir);
+    try t.expect(fs.stat("/a/f/i") == null);
+
+    try t.expectEqual(@as(size_t, 584), fs.stat("/a/e").?.size);
+    try t.expectEqual(@as(size_t, 94853), fs.stat("/a").?.size);
+    try t.expectEqual(@as(size_t, 24933642), fs.stat("/d").?.size);
+    try t.expectEqual(@as(size_t, 48381165), fs.stat("").?.size);
+
+    try t.expectEqual(@as(size_t, 95437), sum_100k(&fs));
 }
 
 pub fn main() !void {}

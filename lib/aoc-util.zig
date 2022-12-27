@@ -36,7 +36,9 @@ pub fn io_shell(main_fn: anytype) !void {
     try bw.flush();
 }
 
-pub fn lines(input: []const u8) std.mem.SplitIterator(u8) {
+pub const Lines = std.mem.SplitIterator(u8);
+
+pub fn lines(input: []const u8) Lines {
     return std.mem.split(u8, std.mem.trimRight(u8, input, "\n"), "\n");
 }
 
