@@ -138,6 +138,44 @@ const Light = struct {
     }
 };
 
+test "Light/square" {
+    const t = std.testing;
+    const example = @embedFile("example0.txt");
+
+    var tr = try Trees.parse(t.allocator, example);
+    defer tr.deinit();
+    var li = try tr.make_light();
+    defer li.deinit();
+
+    try t.expectEqual(@as(usize, 21), li.count());
+}
+
+test "Light/rectangle" {
+    const t = std.testing;
+    // Intended to catch anywhere I mixed up x and y dimensions.
+    const examples = .{
+        \\30373
+        \\25512
+        \\65332
+        ,
+        \\303
+        \\255
+        \\653
+        \\335
+        \\353
+    };
+
+    inline for (examples) |example| {
+        var tr = try Trees.parse(t.allocator, example);
+        defer tr.deinit();
+        var li = try tr.make_light();
+        defer li.deinit();
+
+        // Conveniently they both have the same answer.
+        try t.expectEqual(@as(usize, 14), li.count());
+    }
+}
+
 fn io_main(ctx: util.IOContext) !void {
     var tr = try Trees.parse(ctx.gpa, ctx.input);
     defer tr.deinit();
