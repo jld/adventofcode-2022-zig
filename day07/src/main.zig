@@ -209,44 +209,9 @@ fn parse_tty(alloc: Allocator, input: []const u8) !FileSys {
     return fs;
 }
 
-fn sum_100k(fs: *const FileSys) size_t {
-    var acc: size_t = 0;
-    var files = fs.files.valueIterator();
-    while (files.next()) |file| {
-        if (file.isDir and file.size <= 100000) {
-            acc += file.size;
-        }
-    }
-    return acc;
-}
-
 test "parse_tty" {
     const t = std.testing;
-    const example =
-        \\$ cd /
-        \\$ ls
-        \\dir a
-        \\14848514 b.txt
-        \\8504156 c.dat
-        \\dir d
-        \\$ cd a
-        \\$ ls
-        \\dir e
-        \\29116 f
-        \\2557 g
-        \\62596 h.lst
-        \\$ cd e
-        \\$ ls
-        \\584 i
-        \\$ cd ..
-        \\$ cd ..
-        \\$ cd d
-        \\$ ls
-        \\4060174 j
-        \\8033020 d.log
-        \\5626152 d.ext
-        \\7214296 k
-    ;
+    const example = @embedFile("example0.txt");
 
     var fs = try parse_tty(t.allocator, example);
     defer fs.deinit();
@@ -260,6 +225,25 @@ test "parse_tty" {
     try t.expectEqual(@as(size_t, 94853), fs.stat("/a").?.size);
     try t.expectEqual(@as(size_t, 24933642), fs.stat("/d").?.size);
     try t.expectEqual(@as(size_t, 48381165), fs.stat("").?.size);
+}
+
+fn sum_100k(fs: *const FileSys) size_t {
+    var acc: size_t = 0;
+    var files = fs.files.valueIterator();
+    while (files.next()) |file| {
+        if (file.isDir and file.size <= 100000) {
+            acc += file.size;
+        }
+    }
+    return acc;
+}
+
+test "sum_100k" {
+    const t = std.testing;
+    const example = @embedFile("example0.txt");
+
+    var fs = try parse_tty(t.allocator, example);
+    defer fs.deinit();
 
     try t.expectEqual(@as(size_t, 95437), sum_100k(&fs));
 }
