@@ -50,6 +50,19 @@ const Trees = struct {
     }
 };
 
+test "Trees/parse" {
+    const t = std.testing;
+    const example = @embedFile("example0.txt");
+
+    var tr = try Trees.parse(t.allocator, example);
+    defer tr.deinit();
+
+    try t.expectEqual(@as(usize, 5), tr.xdim);
+    try t.expectEqual(@as(usize, 5), tr.ydim);
+    try t.expectEqual(@as(usize, 25), tr.hmap.len);
+    try t.expectEqual(@as(u8, 7), tr.hmap[3]);
+}
+
 fn io_main(ctx: util.IOContext) !void {
     var tr = try Trees.parse(ctx.gpa, ctx.input);
     defer tr.deinit();
