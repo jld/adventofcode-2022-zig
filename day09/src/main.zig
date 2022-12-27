@@ -219,6 +219,14 @@ const Tracer = struct {
             try self.move(rope, mov);
         }
     }
+
+    fn apply_text(self: *Self, rope: *Rope1, input: []const u8) !void {
+        var lines = util.lines(input);
+        while (lines.next()) |line| {
+            const cmd = try Cmd.parse(line);
+            try self.move_n(rope, cmd.dir, cmd.amt);
+        }
+    }
 };
 
 test "example visited" {
@@ -242,8 +250,52 @@ test "example visited" {
     try t.expectEqual(@as(usize, 13), tr.count());
 }
 
+const Cmd = struct {
+    dir: Move,
+    amt: usize,
+
+    fn parse(input: []const u8) !Cmd {
+        if (input.len < 3) {
+            return error.TooShort;
+        }
+        if (input[1] != ' ') {
+            return error.BadSyntax;
+        }
+        const dir = switch (input[0]) {
+            'U' => Move.up,
+            'D' => Move.down,
+            'L' => Move.left,
+            'R' => Move.right,
+            else => return error.BadDirection,
+        };
+        return .{
+            .dir = dir,
+            .amt = try std.fmt.parseUnsigned(usize, input[2..], 10),
+        };
+    }
+};
+
+test "example, parsed" {
+    const t = std.testing;
+    const example = @embedFile("example0.txt");
+
+    var r = Rope1.init();
+    var tr = try Tracer.init(t.allocator);
+    defer tr.deinit();
+
+    try tr.apply_text(&r, example);
+
+    try t.expect(r.head.is_at(2, -2));
+    try t.expect(r.tail_pos().is_at(1, -2));
+    try t.expectEqual(@as(usize, 13), tr.count());
+}
+
 fn io_main(ctx: util.IOContext) !void {
-    _ = ctx;
+    var r = Rope1.init();
+    var tr = try Tracer.init(ctx.gpa);
+    defer tr.deinit();
+    try tr.apply_text(&r, ctx.input);
+    try ctx.stdout.print("{}\n", .{tr.count()});
 }
 
 pub fn main() !void {
