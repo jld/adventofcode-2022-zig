@@ -109,4 +109,50 @@ test "dirSizes" {
     try t.expectEqual(@as(size_t, 48381165), fs.stat("").?.size);
 }
 
+const Path = struct {
+    buf: std.ArrayList(u8),
+
+    fn init(a: Allocator) Path {
+        return Path{ .buf = std.ArrayList(u8).init(a) };
+    }
+    fn deinit(self: *Path) void {
+        self.buf.deinit();
+    }
+    fn get(self: *const Path) []const u8 {
+        return self.buf.items;
+    }
+
+    fn down(self: *Path, name: []const u8) !void {
+        try self.buf.append('/');
+        try self.buf.appendSlice(name);
+    }
+    fn up(self: *Path) !void {
+        const dir = parent(self.get()) orelse return error.IsRoot;
+        self.buf.shrinkRetainingCapacity(dir.len);
+    }
+};
+
+test "Path" {
+    const t = std.testing;
+    var p = Path.init(t.allocator);
+    defer p.deinit();
+
+    try t.expectEqualStrings("", p.get());
+    try p.down("a");
+    try t.expectEqualStrings("/a", p.get());
+    try p.down("e");
+    try t.expectEqualStrings("/a/e", p.get());
+    try p.down("i");
+    try t.expectEqualStrings("/a/e/i", p.get());
+    try p.up();
+    try t.expectEqualStrings("/a/e", p.get());
+    try p.up();
+    try t.expectEqualStrings("/a", p.get());
+    try p.down("f");
+    try t.expectEqualStrings("/a/f", p.get());
+    try p.up();
+    try p.up();
+    try t.expectError(error.IsRoot, p.up());
+}
+
 pub fn main() !void {}
