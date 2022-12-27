@@ -168,7 +168,7 @@ const Rope1 = struct {
 
 test "rope example" {
     const t = std.testing;
-    
+
     var r = Rope1.init();
     r.move(Move.right);
     try t.expect(r.head.is_at(1, 0));
@@ -187,6 +187,59 @@ test "rope example" {
     try t.expect(r.head.is_at(4, -2));
     try t.expect(r.tail_pos().is_at(4, -1));
     // That's probably enough.
+}
+
+const Tracer = struct {
+    const Self = @This();
+    const Trace = std.hash_map.AutoHashMap(Pos, void);
+    trace: Trace,
+
+    fn init(a: std.mem.Allocator) !Self {
+        var self = Self{ .trace = Trace.init(a) };
+        try self.mark(Pos.zero);
+        return self;
+    }
+    fn deinit(self: *Self) void {
+        self.trace.deinit();
+    }
+    fn mark(self: *Self, point: Pos) !void {
+        try self.trace.put(point, {});
+    }
+    fn count(self: *const Self) usize {
+        return self.trace.count();
+    }
+
+    fn move(self: *Self, rope: *Rope1, mov: Move) !void {
+        rope.move(mov);
+        try self.mark(rope.tail_pos());
+    }
+    fn move_n(self: *Self, rope: *Rope1, mov: Move, n: usize) !void {
+        var i: usize = 0;
+        while (i < n) : (i += 1) {
+            try self.move(rope, mov);
+        }
+    }
+};
+
+test "example visited" {
+    const t = std.testing;
+    var r = Rope1.init();
+    var tr = try Tracer.init(t.allocator);
+    defer tr.deinit();
+
+    try tr.move_n(&r, Move.right, 4);
+    try tr.move_n(&r, Move.up, 4);
+    try tr.move_n(&r, Move.left, 3);
+    try tr.move_n(&r, Move.down, 1);
+    try tr.move_n(&r, Move.right, 4);
+    try tr.move_n(&r, Move.down, 1);
+    try tr.move_n(&r, Move.left, 5);
+    try tr.move_n(&r, Move.right, 2);
+
+    try t.expect(r.head.is_at(2, -2));
+    try t.expect(r.tail_pos().is_at(1, -2));
+
+    try t.expectEqual(@as(usize, 13), tr.count());
 }
 
 fn io_main(ctx: util.IOContext) !void {
