@@ -219,50 +219,52 @@ test "long rope example" {
     try t.expect(r.tail[5].eql(Move.left.add(Move.down)));
 }
 
-const Tracer = struct {
-    const Self = @This();
-    const Trace = std.hash_map.AutoHashMap(Pos, void);
-    trace: Trace,
-    rope: Rope(1),
+fn Tracer(comptime rlen: usize) type {
+    return struct {
+        const Self = @This();
+        const Trace = std.hash_map.AutoHashMap(Pos, void);
+        trace: Trace,
+        rope: Rope(rlen),
 
-    fn init(a: std.mem.Allocator) !Self {
-        var self = Self{ .trace = Trace.init(a), .rope = Rope(1).init() };
-        try self.mark(Pos.zero);
-        return self;
-    }
-    fn deinit(self: *Self) void {
-        self.trace.deinit();
-    }
-    fn mark(self: *Self, point: Pos) !void {
-        try self.trace.put(point, {});
-    }
-    fn count(self: *const Self) usize {
-        return self.trace.count();
-    }
-
-    fn move(self: *Self, mov: Move) !void {
-        self.rope.move(mov);
-        try self.mark(self.rope.tail_pos());
-    }
-    fn move_n(self: *Self, mov: Move, n: usize) !void {
-        var i: usize = 0;
-        while (i < n) : (i += 1) {
-            try self.move(mov);
+        fn init(a: std.mem.Allocator) !Self {
+            var self = Self{ .trace = Trace.init(a), .rope = Rope(rlen).init() };
+            try self.mark(Pos.zero);
+            return self;
         }
-    }
-
-    fn apply_text(self: *Self, input: []const u8) !void {
-        var lines = util.lines(input);
-        while (lines.next()) |line| {
-            const cmd = try Cmd.parse(line);
-            try self.move_n(cmd.dir, cmd.amt);
+        fn deinit(self: *Self) void {
+            self.trace.deinit();
         }
-    }
-};
+        fn mark(self: *Self, point: Pos) !void {
+            try self.trace.put(point, {});
+        }
+        fn count(self: *const Self) usize {
+            return self.trace.count();
+        }
+
+        fn move(self: *Self, mov: Move) !void {
+            self.rope.move(mov);
+            try self.mark(self.rope.tail_pos());
+        }
+        fn move_n(self: *Self, mov: Move, n: usize) !void {
+            var i: usize = 0;
+            while (i < n) : (i += 1) {
+                try self.move(mov);
+            }
+        }
+
+        fn apply_text(self: *Self, input: []const u8) !void {
+            var lines = util.lines(input);
+            while (lines.next()) |line| {
+                const cmd = try Cmd.parse(line);
+                try self.move_n(cmd.dir, cmd.amt);
+            }
+        }
+    };
+}
 
 test "example visited" {
     const t = std.testing;
-    var tr = try Tracer.init(t.allocator);
+    var tr = try Tracer(1).init(t.allocator);
     defer tr.deinit();
 
     try tr.move_n(Move.right, 4);
@@ -309,7 +311,7 @@ test "example, parsed" {
     const t = std.testing;
     const example = @embedFile("example0.txt");
 
-    var tr = try Tracer.init(t.allocator);
+    var tr = try Tracer(1).init(t.allocator);
     defer tr.deinit();
 
     try tr.apply_text(example);
@@ -319,8 +321,19 @@ test "example, parsed" {
     try t.expectEqual(@as(usize, 13), tr.count());
 }
 
+test "example, long" {
+    const t = std.testing;
+    const example = @embedFile("example1.txt");
+
+    var tr = try Tracer(9).init(t.allocator);
+    defer tr.deinit();
+    try tr.apply_text(example);
+
+    try t.expectEqual(@as(usize, 36), tr.count());
+}
+
 fn io_main(ctx: util.IOContext) !void {
-    var tr = try Tracer.init(ctx.gpa);
+    var tr = try Tracer(1).init(ctx.gpa);
     defer tr.deinit();
     try tr.apply_text(ctx.input);
     try ctx.stdout.print("{}\n", .{tr.count()});
