@@ -30,17 +30,17 @@ const Move = struct {
         if (!self.touching()) {
             if (self.dx < 0) {
                 self.dx += 1;
-                rv.dx -= 1;
+                rv.dx += 1;
             } else if (self.dx > 0) {
                 self.dx -= 1;
-                rv.dx += 1;
+                rv.dx -= 1;
             }
             if (self.dy < 0) {
                 self.dy += 1;
-                rv.dy -= 1;
+                rv.dy += 1;
             } else if (self.dy > 0) {
                 self.dy -= 1;
-                rv.dy += 1;
+                rv.dy -= 1;
             }
         }
         return rv;
@@ -106,7 +106,7 @@ test "contract" {
     // 2xUDLR moves that way.
     inline for (ortho) |dir| {
         var m = dir.add(dir);
-        try t.expect(m.contract().eql(dir));
+        try t.expect(m.contract().add(dir).eql(zero));
         try t.expect(m.eql(dir));
     }
 
@@ -114,7 +114,7 @@ test "contract" {
     // (Not explicitly specified… yet.)
     inline for (diag) |dir| {
         var m = dir.add(dir);
-        try t.expect(m.contract().eql(dir));
+        try t.expect(m.contract().add(dir).eql(zero));
         try t.expect(m.eql(dir));
     }
 
@@ -123,7 +123,7 @@ test "contract" {
         const dort = case[0];
         const ddia = case[0].add(case[1]);
         var m = dort.add(ddia);
-        try t.expect(m.contract().eql(ddia));
+        try t.expect(m.contract().add(ddia).eql(zero));
         try t.expect(m.eql(dort));
     }
 }
@@ -196,6 +196,27 @@ test "rope example" {
     try t.expect(r.head.is_at(4, -2));
     try t.expect(r.tail_pos().is_at(4, -1));
     // That's probably enough.
+}
+
+test "long rope example" {
+    const t = std.testing;
+
+    var r = Rope(6).init();
+    r.move(Move.right);
+    r.move(Move.right);
+    r.move(Move.right);
+    r.move(Move.right);
+    r.move(Move.up);
+    r.move(Move.up);
+    r.move(Move.up);
+    r.move(Move.up);
+
+    try t.expect(r.tail[0].eql(Move.down));
+    try t.expect(r.tail[1].eql(Move.down));
+    try t.expect(r.tail[2].eql(Move.left));
+    try t.expect(r.tail[3].eql(Move.left));
+    try t.expect(r.tail[4].eql(Move.left.add(Move.down)));
+    try t.expect(r.tail[5].eql(Move.left.add(Move.down)));
 }
 
 const Tracer = struct {
