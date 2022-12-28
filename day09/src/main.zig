@@ -146,30 +146,39 @@ const Pos = struct {
     }
 };
 
-const Rope1 = struct {
-    const Self = @This();
-    head: Pos,
-    tail: Move,
+fn Rope(comptime len: usize) type {
+    return struct {
+        const Self = @This();
+        head: Pos,
+        tail: [len]Move,
 
-    fn init() Self {
-        return .{ .head = Pos.zero, .tail = Move.zero };
-    }
+        fn init() Self {
+            return .{ .head = Pos.zero, .tail = [_]Move{Move.zero} ** len };
+        }
 
-    fn move(self: *Self, mov0: Move) void {
-        self.head = self.head.add(mov0);
-        self.tail = self.tail.sub(mov0);
-        _ = self.tail.contract();
-    }
+        fn move(self: *Self, mov0: Move) void {
+            self.head = self.head.add(mov0);
+            var mov = mov0;
+            for (self.tail) |*seg| {
+                seg.* = seg.sub(mov);
+                mov = seg.contract();
+            }
+        }
 
-    fn tail_pos(self: *const Self) Pos {
-        return self.head.add(self.tail);
-    }
-};
+        fn tail_pos(self: *const Self) Pos {
+            var pos = self.head;
+            for (self.tail) |seg| {
+                pos = pos.add(seg);
+            }
+            return pos;
+        }
+    };
+}
 
 test "rope example" {
     const t = std.testing;
 
-    var r = Rope1.init();
+    var r = Rope(1).init();
     r.move(Move.right);
     try t.expect(r.head.is_at(1, 0));
     try t.expect(r.tail_pos().is_at(0, 0));
@@ -193,10 +202,10 @@ const Tracer = struct {
     const Self = @This();
     const Trace = std.hash_map.AutoHashMap(Pos, void);
     trace: Trace,
-    rope: Rope1,
+    rope: Rope(1),
 
     fn init(a: std.mem.Allocator) !Self {
-        var self = Self{ .trace = Trace.init(a), .rope = Rope1.init() };
+        var self = Self{ .trace = Trace.init(a), .rope = Rope(1).init() };
         try self.mark(Pos.zero);
         return self;
     }
