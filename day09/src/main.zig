@@ -333,10 +333,12 @@ test "example, long" {
 }
 
 fn io_main(ctx: util.IOContext) !void {
-    var tr = try Tracer(1).init(ctx.gpa);
-    defer tr.deinit();
-    try tr.apply_text(ctx.input);
-    try ctx.stdout.print("{}\n", .{tr.count()});
+    inline for (.{ 1, 9 }) |rlen| {
+        var tr = try Tracer(rlen).init(ctx.gpa);
+        defer tr.deinit();
+        try tr.apply_text(ctx.input);
+        try ctx.stdout.print("{}\n", .{tr.count()});
+    }
 }
 
 pub fn main() !void {
